@@ -30,38 +30,33 @@ if(file_exists(dirname(__FILE__)."/config.ipwhitelist.php")) {
     exit;
 }
 
-$sClientIp = null;
+$aClientIps = [$_SERVER['REMOTE_ADDR']];
 if(isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
     $aIps = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-    $sTmpClientIp = trim($aIps[0]);
-    $blAllowed = in_array($sTmpClientIp, $aWhitelistForwarded);
-    if ($blAllowed) {
-        $sClientIp = $sTmpClientIp;
-    }
+    $aClientIps[] = trim($aIps[0]);
 }
 
-$sRemoteIp = isset($sClientIp) ? $sClientIp : $_SERVER['REMOTE_ADDR'];
-if(array_search($sRemoteIp, $aWhitelist) === false) {
-    $blMatch = false;
-    foreach ($aWhitelist as $sIP) {
-        if(stripos($sIP, '*') !== false) {
+$blMatch = false;
+
+foreach ($aClientIps as $sClientIp) {
+    if (array_search($sClientIp, $aWhitelist)) $blMatch = true;
+    else foreach ($aWhitelist as $sIP) {
+        if (stripos($sIP, '*') !== false) {
             $sDelimiter = '/';
-            
+
             $sRegex = preg_quote($sIP, $sDelimiter);
             $sRegex = str_replace('\*', '\d{1,3}', $sRegex);
             $sRegex = $sDelimiter.'^'.$sRegex.'$'.$sDelimiter;
 
-            preg_match($sRegex, $sRemoteIp, $aMatches);
-            if(is_array($aMatches) && count($aMatches) == 1 && $aMatches[0] == $sRemoteIp) {
-                $blMatch = true;
-            }
+            preg_match($sRegex, $sClientIp, $aMatches);
+            if (is_array($aMatches) && count($aMatches) == 1 && $aMatches[0] == $sClientIp) $blMatch = true;
         }
     }
-    
-    if($blMatch === false) {
-        echo 'Access denied';
-        exit;
-    }
+}
+
+if($blMatch === false) {
+    echo 'Access denied';
+    exit;
 }
 
 include_once dirname(__FILE__) . "/../../../bootstrap.php";
